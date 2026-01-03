@@ -81,17 +81,14 @@ button[disabled] {
 
 <header>🏙️ Idle Skyscraper Tycoon</header>
 
-<!-- HUD -->
 <div id="hud">
   <div class="stat">Money: <strong id="money">$0</strong></div>
   <div class="stat">Floors: <strong id="floors">0</strong></div>
   <div class="stat">Income/sec: <strong id="income">$0</strong></div>
 </div>
 
-<!-- FULLSCREEN CANVAS -->
 <canvas id="gameCanvas"></canvas>
 
-<!-- BUILD BUTTON -->
 <button id="buildBtn"
         class="mdc-button mdc-button--raised"
         onclick="buildFloor()">
@@ -119,6 +116,7 @@ const BASE_FLOOR_COST = 60;
 const BUILD_TIME = 800;
 const FLOOR_HEIGHT = 28;
 const FLOOR_MARGIN = 3;
+const GROUND_PADDING = 120; // visible ground space before camera moves
 
 /* =========================
    GAME STATE
@@ -142,13 +140,7 @@ function loadGame() {
   if (!saved) return;
 
   const data = JSON.parse(saved);
-
-  if (!data.version || data.version < SAVE_VERSION) {
-    data.money = Math.max(data.money ?? 0, 60);
-    data.version = SAVE_VERSION;
-  }
-
-  game.money = data.money;
+  game.money = Math.max(data.money ?? 60, 60);
   game.floors = data.floors || [];
   game.lastTick = data.lastTick || Date.now();
 }
@@ -201,7 +193,7 @@ function applyOfflineIncome() {
 }
 
 /* =========================
-   CANVAS + CAMERA
+   CANVAS + CAMERA (FIXED)
 ========================= */
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
@@ -217,7 +209,7 @@ window.addEventListener("resize", resizeCanvas);
 resizeCanvas();
 
 /* =========================
-   RENDER WITH CAMERA PAN
+   RENDER WITH CORRECT CAMERA BASELINE
 ========================= */
 function drawSkyscraper() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -225,14 +217,18 @@ function drawSkyscraper() {
   const width = 160;
   const baseX = (canvas.width - width) / 2;
 
-  // Calculate tower height
+  const visibleHeight = canvas.height - GROUND_PADDING;
   const towerHeight = game.floors.length * FLOOR_HEIGHT;
 
-  // Camera target (only pan when tower exceeds view)
-  targetCameraY = Math.max(0, towerHeight - canvas.height + 120);
+  // ✅ Camera only moves AFTER overflow
+  if (towerHeight <= visibleHeight) {
+    targetCameraY = 0;
+  } else {
+    targetCameraY = towerHeight - visibleHeight;
+  }
 
-  // Smooth camera movement
-  cameraY += (targetCameraY - cameraY) * 0.06;
+  // Smooth interpolation
+  cameraY += (targetCameraY - cameraY) * 0.08;
 
   let y = canvas.height - FLOOR_MARGIN + cameraY;
 
@@ -268,11 +264,8 @@ function updateUI() {
   document.getElementById("income").textContent = "$" + incomePerSecond();
 
   const cost = floorCost();
-  const btn = document.getElementById("buildBtn");
-  const label = document.getElementById("buildLabel");
-
-  label.textContent = `Build Floor ($${cost})`;
-  btn.disabled = game.money < cost;
+  document.getElementById("buildLabel").textContent = `Build Floor ($${cost})`;
+  document.getElementById("buildBtn").disabled = game.money < cost;
 }
 
 /* =========================
