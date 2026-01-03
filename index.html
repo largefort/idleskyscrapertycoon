@@ -98,10 +98,15 @@ footer {
 </div>
 
 <footer>
-Canvas Idle Game – Fully Debugged
+Canvas Idle Game – Starts With $60 (Save-Safe)
 </footer>
 
 <script>
+/* =========================
+   SAVE VERSIONING
+========================= */
+const SAVE_VERSION = 1;
+
 /* =========================
    CONSTANTS
 ========================= */
@@ -117,16 +122,17 @@ const FLOOR_HEIGHT = 24;
 const FLOOR_MARGIN = 2;
 
 /* =========================
-   GAME STATE
+   GAME STATE (DEFAULTS)
 ========================= */
 let game = {
-  money: 100,          // ✅ bootstrap
+  version: SAVE_VERSION,
+  money: 60,           // ✅ canonical starting money
   floors: [],
   lastTick: Date.now()
 };
 
 /* =========================
-   SAVE / LOAD
+   SAVE / LOAD (FIXED)
 ========================= */
 function saveGame() {
   localStorage.setItem("skyscraperTycoon", JSON.stringify(game));
@@ -138,8 +144,16 @@ function loadGame() {
 
   const data = JSON.parse(saved);
 
-  game.money = data.money ?? 100;
-  game.floors = data.floors ?? [];
+  // 🔁 SAVE MIGRATION
+  if (!data.version || data.version < SAVE_VERSION) {
+    // Fix old saves that started with $0
+    data.money = Math.max(data.money ?? 0, 60);
+    data.version = SAVE_VERSION;
+  }
+
+  game.version = SAVE_VERSION;
+  game.money = typeof data.money === "number" ? data.money : 60;
+  game.floors = Array.isArray(data.floors) ? data.floors : [];
   game.lastTick = data.lastTick ?? Date.now();
 }
 
@@ -147,9 +161,8 @@ function loadGame() {
    LOGIC
 ========================= */
 function randomTenant() {
-  return Object.keys(TENANTS)[
-    Math.floor(Math.random() * 3)
-  ];
+  const keys = Object.keys(TENANTS);
+  return keys[Math.floor(Math.random() * keys.length)];
 }
 
 function floorCost() {
