@@ -50,6 +50,10 @@ canvas {
   margin-top: 8px;
 }
 
+button[disabled] {
+  opacity: 0.6;
+}
+
 footer {
   text-align: center;
   font-size: 12px;
@@ -81,8 +85,12 @@ footer {
 
 <div class="mdc-card card">
   <div style="padding:16px" class="actions">
-    <button class="mdc-button mdc-button--raised" onclick="buildFloor()">
-      <span class="mdc-button__label">Build Floor</span>
+    <button id="buildBtn"
+            class="mdc-button mdc-button--raised"
+            onclick="buildFloor()">
+      <span class="mdc-button__label" id="buildLabel">
+        Build Floor ($0)
+      </span>
     </button>
   </div>
 </div>
@@ -90,7 +98,7 @@ footer {
 </div>
 
 <footer>
-Canvas + Animated Construction (Fixed Core)
+Canvas Idle Game – Fully Debugged
 </footer>
 
 <script>
@@ -104,7 +112,7 @@ const TENANTS = {
 };
 
 const BASE_FLOOR_COST = 60;
-const BUILD_TIME = 800; // ms
+const BUILD_TIME = 800;
 const FLOOR_HEIGHT = 24;
 const FLOOR_MARGIN = 2;
 
@@ -112,8 +120,9 @@ const FLOOR_MARGIN = 2;
    GAME STATE
 ========================= */
 let game = {
-  money: 0,
-  floors: [] // { tenant, builtAt }
+  money: 100,          // ✅ bootstrap
+  floors: [],
+  lastTick: Date.now()
 };
 
 /* =========================
@@ -125,17 +134,22 @@ function saveGame() {
 
 function loadGame() {
   const saved = localStorage.getItem("skyscraperTycoon");
-  if (saved) {
-    game = JSON.parse(saved);
-  }
+  if (!saved) return;
+
+  const data = JSON.parse(saved);
+
+  game.money = data.money ?? 100;
+  game.floors = data.floors ?? [];
+  game.lastTick = data.lastTick ?? Date.now();
 }
 
 /* =========================
-   GAME LOGIC
+   LOGIC
 ========================= */
 function randomTenant() {
-  const keys = Object.keys(TENANTS);
-  return keys[Math.floor(Math.random() * keys.length)];
+  return Object.keys(TENANTS)[
+    Math.floor(Math.random() * 3)
+  ];
 }
 
 function floorCost() {
@@ -159,7 +173,6 @@ function buildFloor() {
   if (game.money < cost) return;
 
   game.money -= cost;
-
   game.floors.push({
     tenant: randomTenant(),
     builtAt: Date.now() + BUILD_TIME
@@ -169,7 +182,19 @@ function buildFloor() {
 }
 
 /* =========================
-   CANVAS RENDERER (PURE)
+   OFFLINE PROGRESS
+========================= */
+function applyOfflineIncome() {
+  const now = Date.now();
+  const elapsed = Math.floor((now - game.lastTick) / 1000);
+  if (elapsed > 0) {
+    game.money += incomePerSecond() * elapsed;
+  }
+  game.lastTick = now;
+}
+
+/* =========================
+   CANVAS
 ========================= */
 const canvas = document.getElementById("skyscraper");
 const ctx = canvas.getContext("2d");
@@ -187,10 +212,12 @@ function drawSkyscraper() {
     const built = isBuilt(floor);
     const progress = built
       ? 1
-      : 1 - (floor.builtAt - Date.now()) / BUILD_TIME;
+      : Math.max(
+          0,
+          1 - (floor.builtAt - Date.now()) / BUILD_TIME
+        );
 
-    const clamped = Math.max(0, Math.min(progress, 1));
-    const offset = FLOOR_HEIGHT * (1 - clamped);
+    const offset = FLOOR_HEIGHT * (1 - progress);
 
     ctx.fillStyle = built
       ? TENANTS[floor.tenant].color
@@ -202,19 +229,8 @@ function drawSkyscraper() {
       width,
       FLOOR_HEIGHT - FLOOR_MARGIN
     );
-
-    if (built) {
-      ctx.strokeStyle = "rgba(0,0,0,0.15)";
-      for (let i = 1; i < 4; i++) {
-        ctx.beginPath();
-        ctx.moveTo(baseX + (width / 4) * i, y);
-        ctx.lineTo(baseX + (width / 4) * i, y + FLOOR_HEIGHT);
-        ctx.stroke();
-      }
-    }
   });
 
-  // ground
   ctx.fillStyle = "#546e7a";
   ctx.fillRect(40, canvas.height - 6, 140, 6);
 }
@@ -225,17 +241,26 @@ function drawSkyscraper() {
 function updateUI() {
   document.getElementById("money").textContent =
     "$" + Math.floor(game.money);
+
   document.getElementById("floors").textContent =
     game.floors.length;
+
   document.getElementById("income").textContent =
     "$" + incomePerSecond();
+
+  const cost = floorCost();
+  const btn = document.getElementById("buildBtn");
+  const label = document.getElementById("buildLabel");
+
+  label.textContent = `Build Floor ($${cost})`;
+  btn.disabled = game.money < cost;
 }
 
 /* =========================
    LOOPS
 ========================= */
 function tick() {
-  game.money += incomePerSecond();
+  applyOfflineIncome();
   saveGame();
   updateUI();
 }
@@ -249,6 +274,7 @@ function renderLoop() {
    INIT
 ========================= */
 loadGame();
+applyOfflineIncome();
 updateUI();
 setInterval(tick, 1000);
 requestAnimationFrame(renderLoop);
