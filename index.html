@@ -170,7 +170,8 @@ function isBuilt(floor) {
 }
 
 function incomePerSecond() {
-  return game.floors.filter(isBuilt)
+  return game.floors
+    .filter(isBuilt)
     .reduce((sum, f) => sum + TENANTS[f.tenant].income, 0);
 }
 
@@ -200,10 +201,13 @@ function applyOfflineIncome() {
 }
 
 /* =========================
-   CANVAS SETUP
+   CANVAS + CAMERA
 ========================= */
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
+
+let cameraY = 0;
+let targetCameraY = 0;
 
 function resizeCanvas() {
   canvas.width = window.innerWidth;
@@ -213,14 +217,24 @@ window.addEventListener("resize", resizeCanvas);
 resizeCanvas();
 
 /* =========================
-   RENDER
+   RENDER WITH CAMERA PAN
 ========================= */
 function drawSkyscraper() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   const width = 160;
   const baseX = (canvas.width - width) / 2;
-  let y = canvas.height - FLOOR_MARGIN;
+
+  // Calculate tower height
+  const towerHeight = game.floors.length * FLOOR_HEIGHT;
+
+  // Camera target (only pan when tower exceeds view)
+  targetCameraY = Math.max(0, towerHeight - canvas.height + 120);
+
+  // Smooth camera movement
+  cameraY += (targetCameraY - cameraY) * 0.06;
+
+  let y = canvas.height - FLOOR_MARGIN + cameraY;
 
   game.floors.forEach(floor => {
     y -= FLOOR_HEIGHT;
@@ -236,7 +250,12 @@ function drawSkyscraper() {
       ? TENANTS[floor.tenant].color
       : "#b0bec5";
 
-    ctx.fillRect(baseX, y + offset, width, FLOOR_HEIGHT - FLOOR_MARGIN);
+    ctx.fillRect(
+      baseX,
+      y + offset,
+      width,
+      FLOOR_HEIGHT - FLOOR_MARGIN
+    );
   });
 }
 
