@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Idle Skyscraper Tycoon</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/material-components-web@14.0.0/dist/material-components-web.min.css">
+
+<style>
+body {
+  margin: 0;
+  background: #eceff1;
+  font-family: Roboto, Arial, sans-serif;
+}
+
+header {
+  background: #6200ee;
+  color: white;
+  padding: 16px;
+  font-size: 20px;
+  text-align: center;
+}
+
+.container {
+  max-width: 520px;
+  margin: auto;
+  padding: 16px;
+}
+
+.card {
+  margin-bottom: 16px;
+}
+
+.stat {
+  font-size: 16px;
+  margin: 6px 0;
+}
+
+canvas {
+  display: block;
+  margin: auto;
+  background: linear-gradient(#cfd8dc, #eceff1);
+  border-radius: 8px;
+}
+
+.actions button {
+  width: 100%;
+  margin-top: 8px;
+}
+
+footer {
+  text-align: center;
+  font-size: 12px;
+  color: #666;
+  margin: 24px 0;
+}
+</style>
+</head>
+
+<body>
+
+<header>🏙️ Idle Skyscraper Tycoon</header>
+
+<div class="container">
+
+<div class="mdc-card card">
+  <div style="padding:16px">
+    <div class="stat">Money: <strong id="money">$0</strong></div>
+    <div class="stat">Floors: <strong id="floors">0</strong></div>
+    <div class="stat">Income/sec: <strong id="income">$0</strong></div>
+  </div>
+</div>
+
+<div class="mdc-card card">
+  <div style="padding:16px">
+    <canvas id="skyscraper" width="220" height="380"></canvas>
+  </div>
+</div>
+
+<div class="mdc-card card">
+  <div style="padding:16px" class="actions">
+    <button class="mdc-button mdc-button--raised" onclick="buildFloor()">
+      <span class="mdc-button__label">Build Floor</span>
+    </button>
+  </div>
+</div>
+
+</div>
+
+<footer>
+Canvas + Animated Construction
+</footer>
+
+<script>
+/* =========================
+   TENANTS
+========================= */
+const TENANTS = {
+  office:  { income: 2, color: "#90caf9" },
+  shop:    { income: 4, color: "#a5d6a7" },
+  luxury:  { income: 8, color: "#ffcc80" }
+};
+
+/* =========================
+   GAME STATE
+========================= */
+let game = {
+  money: 0,
+  floors: []   // { tenant, progress }
+};
+
+const BASE_FLOOR_COST = 60;
+const FLOOR_HEIGHT = 24;
+const FLOOR_MARGIN = 2;
+const BUILD_TIME = 800; // ms
+
+/* =========================
+   SAVE / LOAD
+========================= */
+function saveGame() {
+  localStorage.setItem("skyscraperTycoon", JSON.stringify(game));
+}
+
+function loadGame() {
+  const saved = localStorage.getItem("skyscraperTycoon");
+  if (saved) game = JSON.parse(saved);
+}
+
+/* =========================
+   GAME LOGIC
+========================= */
+function randomTenant() {
+  const keys = Object.keys(TENANTS);
+  return keys[Math.floor(Math.random() * keys.length)];
+}
+
+function floorCost() {
+  return Math.floor(BASE_FLOOR_COST * Math.pow(1.18, game.floors.length));
+}
+
+function incomePerSecond() {
+  return game.floors
+    .filter(f => f.progress >= 1)
+    .reduce((sum, f) => sum + TENANTS[f.tenant].income, 0);
+}
+
+function buildFloor() {
+  const cost = floorCost();
+  if (game.money < cost) return;
+
+  game.money -= cost;
+  game.floors.push({
+    tenant: randomTenant(),
+    progress: 0,
+    start: performance.now()
+  });
+
+  saveGame();
+}
+
+/* =========================
+   CANVAS RENDERER
+========================= */
+const canvas = document.getElementById("skyscraper");
+const ctx = canvas.getContext("2d");
+
+function easeOutCubic(t) {
+  return 1 - Math.pow(1 - t, 3);
+}
+
+function drawSkyscraper(now) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const baseX = 50;
+  const width = 120;
+  let y = canvas.height - FLOOR_MARGIN;
+
+  for (let i = 0; i < game.floors.length; i++) {
+    const floor = game.floors[i];
+
+    let progress = floor.progress;
+    if (progress < 1) {
+      progress = Math.min((now - floor.start) / BUILD_TIME, 1);
+      floor.progress = progress;
+    }
+
+    const eased = easeOutCubic(progress);
+    const offset = FLOOR_HEIGHT * (1 - eased);
+
+    y -= FLOOR_HEIGHT;
+
+    ctx.fillStyle = progress < 1
+      ? "#b0bec5"
+      : TENANTS[floor.tenant].color;
+
+    ctx.fillRect(
+      baseX,
+      y + offset,
+      width,
+      FLOOR_HEIGHT - FLOOR_MARGIN
+    );
+
+    // windows (only after built)
+    if (progress >= 1) {
+      ctx.strokeStyle = "rgba(0,0,0,0.15)";
+      for (let w = 1; w < 4; w++) {
+        ctx.beginPath();
+        ctx.moveTo(baseX + (width / 4) * w, y);
+        ctx.lineTo(baseX + (width / 4) * w, y + FLOOR_HEIGHT);
+        ctx.stroke();
+      }
+    }
+  }
+
+  // ground
+  ctx.fillStyle = "#546e7a";
+  ctx.fillRect(40, canvas.height - 6, 140, 6);
+}
+
+/* =========================
+   UI
+========================= */
+function updateUI() {
+  document.getElementById("money").textContent =
+    "$" + Math.floor(game.money);
+  document.getElementById("floors").textContent =
+    game.floors.length;
+  document.getElementById("income").textContent =
+    "$" + incomePerSecond();
+}
+
+/* =========================
+   LOOPS
+========================= */
+function tick() {
+  game.money += incomePerSecond();
+  saveGame();
+  updateUI();
+}
+
+function renderLoop(now) {
+  drawSkyscraper(now);
+  requestAnimationFrame(renderLoop);
+}
+
+/* =========================
+   INIT
+========================= */
+loadGame();
+updateUI();
+setInterval(tick, 1000);
+requestAnimationFrame(renderLoop);
+</script>
+
+</body>
+</html>
