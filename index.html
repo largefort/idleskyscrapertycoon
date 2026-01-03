@@ -90,12 +90,12 @@ footer {
 </div>
 
 <footer>
-Canvas + Animated Construction
+Canvas + Animated Construction (Fixed Core)
 </footer>
 
 <script>
 /* =========================
-   TENANTS
+   CONSTANTS
 ========================= */
 const TENANTS = {
   office:  { income: 2, color: "#90caf9" },
@@ -103,18 +103,18 @@ const TENANTS = {
   luxury:  { income: 8, color: "#ffcc80" }
 };
 
+const BASE_FLOOR_COST = 60;
+const BUILD_TIME = 800; // ms
+const FLOOR_HEIGHT = 24;
+const FLOOR_MARGIN = 2;
+
 /* =========================
    GAME STATE
 ========================= */
 let game = {
   money: 0,
-  floors: []   // { tenant, progress }
+  floors: [] // { tenant, builtAt }
 };
-
-const BASE_FLOOR_COST = 60;
-const FLOOR_HEIGHT = 24;
-const FLOOR_MARGIN = 2;
-const BUILD_TIME = 800; // ms
 
 /* =========================
    SAVE / LOAD
@@ -125,7 +125,9 @@ function saveGame() {
 
 function loadGame() {
   const saved = localStorage.getItem("skyscraperTycoon");
-  if (saved) game = JSON.parse(saved);
+  if (saved) {
+    game = JSON.parse(saved);
+  }
 }
 
 /* =========================
@@ -137,12 +139,18 @@ function randomTenant() {
 }
 
 function floorCost() {
-  return Math.floor(BASE_FLOOR_COST * Math.pow(1.18, game.floors.length));
+  return Math.floor(
+    BASE_FLOOR_COST * Math.pow(1.18, game.floors.length)
+  );
+}
+
+function isBuilt(floor) {
+  return Date.now() >= floor.builtAt;
 }
 
 function incomePerSecond() {
   return game.floors
-    .filter(f => f.progress >= 1)
+    .filter(isBuilt)
     .reduce((sum, f) => sum + TENANTS[f.tenant].income, 0);
 }
 
@@ -151,49 +159,42 @@ function buildFloor() {
   if (game.money < cost) return;
 
   game.money -= cost;
+
   game.floors.push({
     tenant: randomTenant(),
-    progress: 0,
-    start: performance.now()
+    builtAt: Date.now() + BUILD_TIME
   });
 
   saveGame();
 }
 
 /* =========================
-   CANVAS RENDERER
+   CANVAS RENDERER (PURE)
 ========================= */
 const canvas = document.getElementById("skyscraper");
 const ctx = canvas.getContext("2d");
 
-function easeOutCubic(t) {
-  return 1 - Math.pow(1 - t, 3);
-}
-
-function drawSkyscraper(now) {
+function drawSkyscraper() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   const baseX = 50;
   const width = 120;
   let y = canvas.height - FLOOR_MARGIN;
 
-  for (let i = 0; i < game.floors.length; i++) {
-    const floor = game.floors[i];
-
-    let progress = floor.progress;
-    if (progress < 1) {
-      progress = Math.min((now - floor.start) / BUILD_TIME, 1);
-      floor.progress = progress;
-    }
-
-    const eased = easeOutCubic(progress);
-    const offset = FLOOR_HEIGHT * (1 - eased);
-
+  game.floors.forEach(floor => {
     y -= FLOOR_HEIGHT;
 
-    ctx.fillStyle = progress < 1
-      ? "#b0bec5"
-      : TENANTS[floor.tenant].color;
+    const built = isBuilt(floor);
+    const progress = built
+      ? 1
+      : 1 - (floor.builtAt - Date.now()) / BUILD_TIME;
+
+    const clamped = Math.max(0, Math.min(progress, 1));
+    const offset = FLOOR_HEIGHT * (1 - clamped);
+
+    ctx.fillStyle = built
+      ? TENANTS[floor.tenant].color
+      : "#b0bec5";
 
     ctx.fillRect(
       baseX,
@@ -202,17 +203,16 @@ function drawSkyscraper(now) {
       FLOOR_HEIGHT - FLOOR_MARGIN
     );
 
-    // windows (only after built)
-    if (progress >= 1) {
+    if (built) {
       ctx.strokeStyle = "rgba(0,0,0,0.15)";
-      for (let w = 1; w < 4; w++) {
+      for (let i = 1; i < 4; i++) {
         ctx.beginPath();
-        ctx.moveTo(baseX + (width / 4) * w, y);
-        ctx.lineTo(baseX + (width / 4) * w, y + FLOOR_HEIGHT);
+        ctx.moveTo(baseX + (width / 4) * i, y);
+        ctx.lineTo(baseX + (width / 4) * i, y + FLOOR_HEIGHT);
         ctx.stroke();
       }
     }
-  }
+  });
 
   // ground
   ctx.fillStyle = "#546e7a";
@@ -240,8 +240,8 @@ function tick() {
   updateUI();
 }
 
-function renderLoop(now) {
-  drawSkyscraper(now);
+function renderLoop() {
+  drawSkyscraper();
   requestAnimationFrame(renderLoop);
 }
 
