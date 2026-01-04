@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <title>Idle Skyscraper Tycoon</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0,
+               maximum-scale=1.0, user-scalable=no">
 
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/material-components-web@14.0.0/dist/material-components-web.min.css">
@@ -17,6 +20,7 @@ html, body {
   overflow: hidden;
   background: #eceff1;
   font-family: Roboto, Arial, sans-serif;
+  touch-action: manipulation;
 }
 
 /* HEADER */
@@ -43,6 +47,7 @@ header {
   width: 100vw;
   height: calc(100vh - 56px);
   background: linear-gradient(#cfd8dc, #eceff1);
+  touch-action: manipulation;
 }
 
 /* HUD */
@@ -99,6 +104,13 @@ button[disabled] {
 
 <script>
 /* =========================
+   DISABLE PINCH ZOOM (iOS / Safari)
+========================= */
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('gesturechange', e => e.preventDefault());
+document.addEventListener('gestureend', e => e.preventDefault());
+
+/* =========================
    SAVE VERSIONING
 ========================= */
 const SAVE_VERSION = 1;
@@ -116,7 +128,7 @@ const BASE_FLOOR_COST = 60;
 const BUILD_TIME = 800;
 const FLOOR_HEIGHT = 28;
 const FLOOR_MARGIN = 3;
-const GROUND_PADDING = 120; // visible ground space before camera moves
+const GROUND_PADDING = 120;
 
 /* =========================
    GAME STATE
@@ -193,7 +205,7 @@ function applyOfflineIncome() {
 }
 
 /* =========================
-   CANVAS + CAMERA (FIXED)
+   CANVAS + CAMERA
 ========================= */
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
@@ -209,7 +221,7 @@ window.addEventListener("resize", resizeCanvas);
 resizeCanvas();
 
 /* =========================
-   RENDER WITH CORRECT CAMERA BASELINE
+   RENDER
 ========================= */
 function drawSkyscraper() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -220,14 +232,10 @@ function drawSkyscraper() {
   const visibleHeight = canvas.height - GROUND_PADDING;
   const towerHeight = game.floors.length * FLOOR_HEIGHT;
 
-  // ✅ Camera only moves AFTER overflow
-  if (towerHeight <= visibleHeight) {
-    targetCameraY = 0;
-  } else {
-    targetCameraY = towerHeight - visibleHeight;
-  }
+  targetCameraY = towerHeight <= visibleHeight
+    ? 0
+    : towerHeight - visibleHeight;
 
-  // Smooth interpolation
   cameraY += (targetCameraY - cameraY) * 0.08;
 
   let y = canvas.height - FLOOR_MARGIN + cameraY;
@@ -246,17 +254,12 @@ function drawSkyscraper() {
       ? TENANTS[floor.tenant].color
       : "#b0bec5";
 
-    ctx.fillRect(
-      baseX,
-      y + offset,
-      width,
-      FLOOR_HEIGHT - FLOOR_MARGIN
-    );
+    ctx.fillRect(baseX, y + offset, width, FLOOR_HEIGHT - FLOOR_MARGIN);
   });
 }
 
 /* =========================
-   UI
+   UI & LOOPS
 ========================= */
 function updateUI() {
   document.getElementById("money").textContent = "$" + Math.floor(game.money);
@@ -268,9 +271,6 @@ function updateUI() {
   document.getElementById("buildBtn").disabled = game.money < cost;
 }
 
-/* =========================
-   LOOPS
-========================= */
 function tick() {
   applyOfflineIncome();
   saveGame();
@@ -282,9 +282,6 @@ function renderLoop() {
   requestAnimationFrame(renderLoop);
 }
 
-/* =========================
-   INIT
-========================= */
 loadGame();
 applyOfflineIncome();
 updateUI();
