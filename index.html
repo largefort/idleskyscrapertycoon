@@ -125,6 +125,12 @@ const TENANTS = {
 };
 
 const BASE_FLOOR_COST = 60;
+
+/* 🔧 PRICE SCALING (FIXED) */
+const LINEAR_COST = 12;      // steady growth per floor
+const EXP_START = 30;        // exponential starts after this
+const EXP_RATE = 1.06;       // soft exponential (NOT runaway)
+
 const BUILD_TIME = 800;
 const FLOOR_HEIGHT = 28;
 const FLOOR_MARGIN = 3;
@@ -165,8 +171,18 @@ function randomTenant() {
   return keys[Math.floor(Math.random() * keys.length)];
 }
 
+/* ✅ FIXED PRICE FUNCTION */
 function floorCost() {
-  return Math.floor(BASE_FLOOR_COST * Math.pow(1.18, game.floors.length));
+  const n = game.floors.length;
+
+  const linear = n * LINEAR_COST;
+
+  const exponential =
+    n > EXP_START
+      ? Math.pow(EXP_RATE, n - EXP_START) * BASE_FLOOR_COST
+      : 0;
+
+  return Math.floor(BASE_FLOOR_COST + linear + exponential);
 }
 
 function isBuilt(floor) {
@@ -254,7 +270,12 @@ function drawSkyscraper() {
       ? TENANTS[floor.tenant].color
       : "#b0bec5";
 
-    ctx.fillRect(baseX, y + offset, width, FLOOR_HEIGHT - FLOOR_MARGIN);
+    ctx.fillRect(
+      baseX,
+      y + offset,
+      width,
+      FLOOR_HEIGHT - FLOOR_MARGIN
+    );
   });
 }
 
@@ -282,6 +303,9 @@ function renderLoop() {
   requestAnimationFrame(renderLoop);
 }
 
+/* =========================
+   INIT
+========================= */
 loadGame();
 applyOfflineIncome();
 updateUI();
