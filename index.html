@@ -18,7 +18,7 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #eceff1;
+  background: #e6ebef;
   font-family: Roboto, Arial, sans-serif;
   touch-action: manipulation;
 }
@@ -30,13 +30,14 @@ header {
   left: 0;
   right: 0;
   height: 56px;
-  background: #6200ee;
+  background: linear-gradient(90deg, #5e35b1, #673ab7);
   color: white;
   display: flex;
   align-items: center;
   padding: 0 16px;
   font-size: 18px;
   z-index: 10;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.25);
 }
 
 /* CANVAS FULLSCREEN */
@@ -46,8 +47,7 @@ header {
   left: 0;
   width: 100vw;
   height: calc(100vh - 56px);
-  background: linear-gradient(#cfd8dc, #eceff1);
-  touch-action: manipulation;
+  background: linear-gradient(#b0bec5, #e6ebef);
 }
 
 /* HUD */
@@ -55,10 +55,10 @@ header {
   position: fixed;
   top: 72px;
   left: 16px;
-  background: rgba(255,255,255,0.9);
-  border-radius: 8px;
+  background: rgba(255,255,255,0.92);
+  border-radius: 10px;
   padding: 12px 16px;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.2);
   z-index: 10;
 }
 
@@ -70,10 +70,11 @@ header {
 /* BUILD BUTTON */
 #buildBtn {
   position: fixed;
-  bottom: 24px;
+  bottom: 28px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 10;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.3);
 }
 
 button[disabled] {
@@ -104,16 +105,10 @@ button[disabled] {
 
 <script>
 /* =========================
-   DISABLE PINCH ZOOM (iOS / Safari)
+   DISABLE PINCH ZOOM
 ========================= */
-document.addEventListener('gesturestart', e => e.preventDefault());
-document.addEventListener('gesturechange', e => e.preventDefault());
-document.addEventListener('gestureend', e => e.preventDefault());
-
-/* =========================
-   SAVE VERSIONING
-========================= */
-const SAVE_VERSION = 1;
+["gesturestart","gesturechange","gestureend"]
+  .forEach(e => document.addEventListener(e, ev => ev.preventDefault()));
 
 /* =========================
    CONSTANTS
@@ -125,11 +120,9 @@ const TENANTS = {
 };
 
 const BASE_FLOOR_COST = 60;
-
-/* 🔧 PRICE SCALING (FIXED) */
-const LINEAR_COST = 12;      // steady growth per floor
-const EXP_START = 30;        // exponential starts after this
-const EXP_RATE = 1.06;       // soft exponential (NOT runaway)
+const LINEAR_COST = 12;
+const EXP_START = 30;
+const EXP_RATE = 1.06;
 
 const BUILD_TIME = 800;
 const FLOOR_HEIGHT = 28;
@@ -140,7 +133,6 @@ const GROUND_PADDING = 120;
    GAME STATE
 ========================= */
 let game = {
-  version: SAVE_VERSION,
   money: 60,
   floors: [],
   lastTick: Date.now()
@@ -154,69 +146,43 @@ function saveGame() {
 }
 
 function loadGame() {
-  const saved = localStorage.getItem("skyscraperTycoon");
-  if (!saved) return;
-
-  const data = JSON.parse(saved);
-  game.money = Math.max(data.money ?? 60, 60);
-  game.floors = data.floors || [];
-  game.lastTick = data.lastTick || Date.now();
+  const d = JSON.parse(localStorage.getItem("skyscraperTycoon") || "{}");
+  game.money = Math.max(d.money ?? 60, 60);
+  game.floors = d.floors || [];
+  game.lastTick = d.lastTick || Date.now();
 }
 
 /* =========================
    LOGIC
 ========================= */
-function randomTenant() {
-  const keys = Object.keys(TENANTS);
-  return keys[Math.floor(Math.random() * keys.length)];
-}
-
-/* ✅ FIXED PRICE FUNCTION */
 function floorCost() {
   const n = game.floors.length;
-
   const linear = n * LINEAR_COST;
-
-  const exponential =
-    n > EXP_START
-      ? Math.pow(EXP_RATE, n - EXP_START) * BASE_FLOOR_COST
-      : 0;
-
-  return Math.floor(BASE_FLOOR_COST + linear + exponential);
-}
-
-function isBuilt(floor) {
-  return Date.now() >= floor.builtAt;
+  const exp = n > EXP_START ? Math.pow(EXP_RATE, n - EXP_START) * BASE_FLOOR_COST : 0;
+  return Math.floor(BASE_FLOOR_COST + linear + exp);
 }
 
 function incomePerSecond() {
   return game.floors
-    .filter(isBuilt)
-    .reduce((sum, f) => sum + TENANTS[f.tenant].income, 0);
+    .filter(f => Date.now() >= f.builtAt)
+    .reduce((s, f) => s + TENANTS[f.tenant].income, 0);
 }
 
 function buildFloor() {
   const cost = floorCost();
   if (game.money < cost) return;
-
   game.money -= cost;
-  game.floors.push({
-    tenant: randomTenant(),
-    builtAt: Date.now() + BUILD_TIME
-  });
-
+  game.floors.push({ tenant: Object.keys(TENANTS)[Math.random()*3|0], builtAt: Date.now() + BUILD_TIME });
   saveGame();
 }
 
 /* =========================
-   OFFLINE PROGRESS
+   OFFLINE INCOME
 ========================= */
 function applyOfflineIncome() {
   const now = Date.now();
-  const elapsed = Math.floor((now - game.lastTick) / 1000);
-  if (elapsed > 0) {
-    game.money += incomePerSecond() * elapsed;
-  }
+  const elapsed = ((now - game.lastTick) / 1000) | 0;
+  if (elapsed > 0) game.money += incomePerSecond() * elapsed;
   game.lastTick = now;
 }
 
@@ -226,72 +192,81 @@ function applyOfflineIncome() {
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-let cameraY = 0;
-let targetCameraY = 0;
+let cameraY = 0, targetCameraY = 0;
 
 function resizeCanvas() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight - 56;
+  canvas.width = innerWidth;
+  canvas.height = innerHeight - 56;
 }
-window.addEventListener("resize", resizeCanvas);
+addEventListener("resize", resizeCanvas);
 resizeCanvas();
 
 /* =========================
-   RENDER
+   RENDER (ENHANCED)
 ========================= */
 function drawSkyscraper() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  // Sky
+  const sky = ctx.createLinearGradient(0,0,0,canvas.height);
+  sky.addColorStop(0,"#90a4ae");
+  sky.addColorStop(1,"#eceff1");
+  ctx.fillStyle = sky;
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
   const width = 160;
   const baseX = (canvas.width - width) / 2;
-
   const visibleHeight = canvas.height - GROUND_PADDING;
   const towerHeight = game.floors.length * FLOOR_HEIGHT;
 
-  targetCameraY = towerHeight <= visibleHeight
-    ? 0
-    : towerHeight - visibleHeight;
-
+  targetCameraY = Math.max(0, towerHeight - visibleHeight);
   cameraY += (targetCameraY - cameraY) * 0.08;
 
   let y = canvas.height - FLOOR_MARGIN + cameraY;
 
-  game.floors.forEach(floor => {
+  game.floors.forEach(f => {
     y -= FLOOR_HEIGHT;
-
-    const built = isBuilt(floor);
-    const progress = built
-      ? 1
-      : Math.max(0, 1 - (floor.builtAt - Date.now()) / BUILD_TIME);
-
+    const built = Date.now() >= f.builtAt;
+    const progress = built ? 1 : Math.max(0, 1 - (f.builtAt - Date.now()) / BUILD_TIME);
     const offset = FLOOR_HEIGHT * (1 - progress);
 
-    ctx.fillStyle = built
-      ? TENANTS[floor.tenant].color
-      : "#b0bec5";
+    // Main floor
+    ctx.fillStyle = built ? TENANTS[f.tenant].color : "#b0bec5";
+    ctx.fillRect(baseX, y + offset, width, FLOOR_HEIGHT - FLOOR_MARGIN);
 
-    ctx.fillRect(
-      baseX,
-      y + offset,
-      width,
-      FLOOR_HEIGHT - FLOOR_MARGIN
-    );
+    // Side depth
+    ctx.fillStyle = "rgba(0,0,0,0.08)";
+    ctx.fillRect(baseX + width - 10, y + offset, 10, FLOOR_HEIGHT - FLOOR_MARGIN);
+
+    // Windows
+    if (built) {
+      ctx.fillStyle = "rgba(255,255,255,0.55)";
+      for (let i=1;i<5;i++) {
+        ctx.fillRect(baseX + i*30 - 5, y + 6, 8, 10);
+      }
+    }
   });
+
+  // Ground
+  ctx.fillStyle = "#455a64";
+  ctx.fillRect(baseX - 20, canvas.height - 8, width + 40, 8);
 }
 
 /* =========================
-   UI & LOOPS
+   UI
 ========================= */
 function updateUI() {
-  document.getElementById("money").textContent = "$" + Math.floor(game.money);
-  document.getElementById("floors").textContent = game.floors.length;
-  document.getElementById("income").textContent = "$" + incomePerSecond();
-
+  money.textContent = "$" + Math.floor(game.money);
+  floors.textContent = game.floors.length;
+  income.textContent = "$" + incomePerSecond();
   const cost = floorCost();
-  document.getElementById("buildLabel").textContent = `Build Floor ($${cost})`;
-  document.getElementById("buildBtn").disabled = game.money < cost;
+  buildLabel.textContent = `Build Floor ($${cost})`;
+  buildBtn.disabled = game.money < cost;
 }
 
+/* =========================
+   LOOPS
+========================= */
 function tick() {
   applyOfflineIncome();
   saveGame();
