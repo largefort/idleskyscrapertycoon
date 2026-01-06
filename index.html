@@ -158,7 +158,7 @@ function loadGame() {
 }
 
 /* =========================
-   LOGIC
+   ECONOMY
 ========================= */
 function floorCost() {
   const n = game.floors.length;
@@ -173,14 +173,18 @@ function incomePerSecond() {
     .reduce((s, f) => s + TENANTS[f.tenant].income, 0);
 }
 
+function addOnlineIncome() {
+  game.money += incomePerSecond();
+}
+
 function buildFloor() {
   const cost = floorCost();
   if (game.money < cost) return;
 
-  const tenantKeys = Object.keys(TENANTS);
+  const keys = Object.keys(TENANTS);
   game.money -= cost;
   game.floors.push({
-    tenant: tenantKeys[Math.random() * tenantKeys.length | 0],
+    tenant: keys[Math.random() * keys.length | 0],
     builtAt: Date.now() + BUILD_TIME
   });
 
@@ -188,12 +192,14 @@ function buildFloor() {
 }
 
 /* =========================
-   OFFLINE INCOME
+   OFFLINE INCOME (FIXED)
 ========================= */
 function applyOfflineIncome() {
   const now = Date.now();
-  const elapsed = ((now - game.lastTick) / 1000) | 0;
-  if (elapsed > 0) game.money += incomePerSecond() * elapsed;
+  const elapsed = Math.floor((now - game.lastTick) / 1000);
+  if (elapsed > 0) {
+    game.money += incomePerSecond() * elapsed;
+  }
   game.lastTick = now;
 }
 
@@ -213,7 +219,7 @@ addEventListener("resize", resizeCanvas);
 resizeCanvas();
 
 /* =========================
-   RENDER (ENGAGING, UNCHANGED FLOW)
+   RENDER
 ========================= */
 function drawSkyscraper() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -259,7 +265,7 @@ function drawSkyscraper() {
 }
 
 /* =========================
-   UI
+   UI & LOOPS
 ========================= */
 function updateUI() {
   money.textContent = "$" + Math.floor(game.money);
@@ -270,11 +276,8 @@ function updateUI() {
   buildBtn.disabled = game.money < cost;
 }
 
-/* =========================
-   LOOPS
-========================= */
 function tick() {
-  applyOfflineIncome();
+  addOnlineIncome();
   saveGame();
   updateUI();
 }
@@ -288,7 +291,7 @@ function renderLoop() {
    INIT
 ========================= */
 loadGame();
-applyOfflineIncome();
+applyOfflineIncome(); // ✅ only once
 updateUI();
 setInterval(tick, 1000);
 requestAnimationFrame(renderLoop);
