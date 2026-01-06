@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -139,8 +140,7 @@ const GROUND_PADDING = 120;
 ========================= */
 let game = {
   money: 60,
-  floors: [],
-  lastTick: Date.now()
+  floors: []
 };
 
 /* =========================
@@ -154,7 +154,6 @@ function loadGame() {
   const d = JSON.parse(localStorage.getItem("skyscraperTycoon") || "{}");
   game.money = Math.max(d.money ?? 60, 60);
   game.floors = d.floors || [];
-  game.lastTick = d.lastTick || Date.now();
 }
 
 /* =========================
@@ -189,18 +188,6 @@ function buildFloor() {
   });
 
   saveGame();
-}
-
-/* =========================
-   OFFLINE INCOME (FIXED)
-========================= */
-function applyOfflineIncome() {
-  const now = Date.now();
-  const elapsed = Math.floor((now - game.lastTick) / 1000);
-  if (elapsed > 0) {
-    game.money += incomePerSecond() * elapsed;
-  }
-  game.lastTick = now;
 }
 
 /* =========================
@@ -291,7 +278,6 @@ function renderLoop() {
    INIT
 ========================= */
 loadGame();
-applyOfflineIncome(); // ✅ only once
 updateUI();
 setInterval(tick, 1000);
 requestAnimationFrame(renderLoop);
