@@ -8,9 +8,6 @@
       content="width=device-width, initial-scale=1.0,
                maximum-scale=1.0, user-scalable=no">
 
-<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-<link rel="stylesheet" href="https://unpkg.com/material-components-web@14.0.0/dist/material-components-web.min.css">
-
 <style>
 html, body {
   margin: 0;
@@ -20,10 +17,8 @@ html, body {
   overflow: hidden;
   background: #e6ebef;
   font-family: Roboto, Arial, sans-serif;
-  touch-action: manipulation;
 }
 
-/* HEADER */
 header {
   position: fixed;
   top: 0;
@@ -37,20 +32,16 @@ header {
   padding: 0 16px;
   font-size: 18px;
   z-index: 10;
-  box-shadow: 0 3px 8px rgba(0,0,0,0.25);
 }
 
-/* CANVAS FULLSCREEN */
 #gameCanvas {
   position: absolute;
   top: 56px;
   left: 0;
   width: 100vw;
   height: calc(100vh - 56px);
-  background: linear-gradient(#b0bec5, #e6ebef);
 }
 
-/* HUD */
 #hud {
   position: fixed;
   top: 72px;
@@ -62,23 +53,14 @@ header {
   z-index: 10;
 }
 
-.stat {
-  font-size: 14px;
-  margin: 4px 0;
-}
+.stat { font-size: 14px; margin: 4px 0; }
 
-/* BUILD BUTTON */
 #buildBtn {
   position: fixed;
   bottom: 28px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 10;
-  box-shadow: 0 8px 20px rgba(0,0,0,0.3);
-}
-
-button[disabled] {
-  opacity: 0.6;
 }
 </style>
 </head>
@@ -95,38 +77,33 @@ button[disabled] {
 
 <canvas id="gameCanvas"></canvas>
 
-<button id="buildBtn"
-        class="mdc-button mdc-button--raised"
-        onclick="buildFloor()">
-  <span class="mdc-button__label" id="buildLabel">
-    Build Floor ($0)
-  </span>
+<button id="buildBtn" onclick="buildFloor()">
+  <span id="buildLabel">Build Floor ($0)</span>
 </button>
 
 <script>
 /* =========================
-   DISABLE PINCH ZOOM
+   FLOOR TYPES
 ========================= */
-["gesturestart","gesturechange","gestureend"]
-  .forEach(e => document.addEventListener(e, ev => ev.preventDefault()));
+const FLOOR_TYPES = [
+  { id: "office", name: "Office", income: 2, color: "#90caf9", unlock: 0 },
+  { id: "retail", name: "Retail", income: 4, color: "#a5d6a7", unlock: 0 },
+  { id: "residential", name: "Residential", income: 3, color: "#ffcc80", unlock: 0 },
+  { id: "hotel", name: "Hotel", income: 7, color: "#ce93d8", unlock: 20 },
+  { id: "hq", name: "Corporate HQ", income: 12, color: "#ef5350", unlock: 50 },
+  { id: "penthouse", name: "Penthouse", income: 25, color: "#ffd54f", unlock: 100 }
+];
 
 /* =========================
-   CONSTANTS
+   ECONOMY
 ========================= */
-const TENANTS = {
-  office:  { income: 2, color: "#90caf9" },
-  shop:    { income: 4, color: "#a5d6a7" },
-  luxury:  { income: 8, color: "#ffcc80" }
-};
-
 const BASE_FLOOR_COST = 60;
 const LINEAR_COST = 12;
 const EXP_START = 30;
 const EXP_RATE = 1.06;
 
-const BUILD_TIME = 800;
 const FLOOR_HEIGHT = 28;
-const FLOOR_MARGIN = 3;
+const BUILD_TIME = 800;
 const GROUND_PADDING = 120;
 
 /* =========================
@@ -144,7 +121,6 @@ let game = {
 function saveGame() {
   localStorage.setItem("skyscraperTycoon", JSON.stringify(game));
 }
-
 function loadGame() {
   const d = JSON.parse(localStorage.getItem("skyscraperTycoon") || "{}");
   game.money = Math.max(d.money ?? 60, 60);
@@ -153,7 +129,7 @@ function loadGame() {
 }
 
 /* =========================
-   LOGIC
+   CORE LOGIC
 ========================= */
 function floorCost() {
   const n = game.floors.length;
@@ -162,17 +138,36 @@ function floorCost() {
   return Math.floor(BASE_FLOOR_COST + linear + exp);
 }
 
+function availableFloorTypes() {
+  return FLOOR_TYPES.filter(f => game.floors.length >= f.unlock);
+}
+
+function pickFloorType() {
+  const available = availableFloorTypes();
+  return available[Math.random() * available.length | 0];
+}
+
 function incomePerSecond() {
-  return game.floors
-    .filter(f => Date.now() >= f.builtAt)
-    .reduce((s, f) => s + TENANTS[f.tenant].income, 0);
+  return game.floors.reduce(
+    (sum, f) => sum + (Date.now() >= f.builtAt ? f.income : 0),
+    0
+  );
 }
 
 function buildFloor() {
   const cost = floorCost();
   if (game.money < cost) return;
+
+  const type = pickFloorType();
+
   game.money -= cost;
-  game.floors.push({ tenant: Object.keys(TENANTS)[Math.random()*3|0], builtAt: Date.now() + BUILD_TIME });
+  game.floors.push({
+    type: type.id,
+    income: type.income,
+    color: type.color,
+    builtAt: Date.now() + BUILD_TIME
+  });
+
   saveGame();
 }
 
@@ -191,23 +186,21 @@ function applyOfflineIncome() {
 ========================= */
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
-
 let cameraY = 0, targetCameraY = 0;
 
-function resizeCanvas() {
+function resize() {
   canvas.width = innerWidth;
   canvas.height = innerHeight - 56;
 }
-addEventListener("resize", resizeCanvas);
-resizeCanvas();
+addEventListener("resize", resize);
+resize();
 
 /* =========================
-   RENDER (ENHANCED)
+   RENDER
 ========================= */
-function drawSkyscraper() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+function draw() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
 
-  // Sky
   const sky = ctx.createLinearGradient(0,0,0,canvas.height);
   sky.addColorStop(0,"#90a4ae");
   sky.addColorStop(1,"#eceff1");
@@ -216,40 +209,25 @@ function drawSkyscraper() {
 
   const width = 160;
   const baseX = (canvas.width - width) / 2;
+
   const visibleHeight = canvas.height - GROUND_PADDING;
   const towerHeight = game.floors.length * FLOOR_HEIGHT;
-
   targetCameraY = Math.max(0, towerHeight - visibleHeight);
   cameraY += (targetCameraY - cameraY) * 0.08;
 
-  let y = canvas.height - FLOOR_MARGIN + cameraY;
+  let y = canvas.height + cameraY;
 
   game.floors.forEach(f => {
     y -= FLOOR_HEIGHT;
-    const built = Date.now() >= f.builtAt;
-    const progress = built ? 1 : Math.max(0, 1 - (f.builtAt - Date.now()) / BUILD_TIME);
-    const offset = FLOOR_HEIGHT * (1 - progress);
+    ctx.fillStyle = f.color;
+    ctx.fillRect(baseX, y, width, FLOOR_HEIGHT - 3);
 
-    // Main floor
-    ctx.fillStyle = built ? TENANTS[f.tenant].color : "#b0bec5";
-    ctx.fillRect(baseX, y + offset, width, FLOOR_HEIGHT - FLOOR_MARGIN);
-
-    // Side depth
-    ctx.fillStyle = "rgba(0,0,0,0.08)";
-    ctx.fillRect(baseX + width - 10, y + offset, 10, FLOOR_HEIGHT - FLOOR_MARGIN);
-
-    // Windows
-    if (built) {
-      ctx.fillStyle = "rgba(255,255,255,0.55)";
-      for (let i=1;i<5;i++) {
-        ctx.fillRect(baseX + i*30 - 5, y + 6, 8, 10);
-      }
-    }
+    ctx.fillStyle = "rgba(0,0,0,0.1)";
+    ctx.fillRect(baseX + width - 10, y, 10, FLOOR_HEIGHT - 3);
   });
 
-  // Ground
   ctx.fillStyle = "#455a64";
-  ctx.fillRect(baseX - 20, canvas.height - 8, width + 40, 8);
+  ctx.fillRect(baseX - 30, canvas.height - 8, width + 60, 8);
 }
 
 /* =========================
@@ -259,9 +237,7 @@ function updateUI() {
   money.textContent = "$" + Math.floor(game.money);
   floors.textContent = game.floors.length;
   income.textContent = "$" + incomePerSecond();
-  const cost = floorCost();
-  buildLabel.textContent = `Build Floor ($${cost})`;
-  buildBtn.disabled = game.money < cost;
+  buildLabel.textContent = `Build Floor ($${floorCost()})`;
 }
 
 /* =========================
@@ -273,9 +249,9 @@ function tick() {
   updateUI();
 }
 
-function renderLoop() {
-  drawSkyscraper();
-  requestAnimationFrame(renderLoop);
+function loop() {
+  draw();
+  requestAnimationFrame(loop);
 }
 
 /* =========================
@@ -285,7 +261,7 @@ loadGame();
 applyOfflineIncome();
 updateUI();
 setInterval(tick, 1000);
-requestAnimationFrame(renderLoop);
+loop();
 </script>
 
 </body>
