@@ -1,3 +1,5 @@
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -23,17 +25,34 @@ html, body {
   touch-action: manipulation;
 }
 
+/* HEADER */
+header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  background: linear-gradient(90deg, #5e35b1, #673ab7);
+  color: white;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  font-size: 18px;
+  z-index: 10;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.25);
+}
+
 /* CANVAS FULLSCREEN */
 #gameCanvas {
   position: absolute;
-  top: 0;
+  top: 56px;
   left: 0;
   width: 100vw;
-  height: 100vh;
+  height: calc(100vh - 56px);
   background: linear-gradient(#b0bec5, #e6ebef);
 }
 
-/* HUD (kept exactly as-is) */
+/* HUD */
 #hud {
   position: fixed;
   top: 72px;
@@ -68,7 +87,7 @@ button[disabled] {
 
 <body>
 
-<!-- DOM HEADER REMOVED -->
+<header>🏙️ Idle Skyscraper Tycoon</header>
 
 <div id="hud">
   <div class="stat">Money: <strong id="money">$0</strong></div>
@@ -182,23 +201,10 @@ let cameraY = 0, targetCameraY = 0;
 
 function resizeCanvas() {
   canvas.width = innerWidth;
-  canvas.height = innerHeight;
+  canvas.height = innerHeight - 56;
 }
 addEventListener("resize", resizeCanvas);
 resizeCanvas();
-
-/* =========================
-   CANVAS HEADER (NEW, SAFE)
-========================= */
-function drawCanvasHeader() {
-  ctx.fillStyle = "rgba(94,53,177,0.95)";
-  ctx.fillRect(0, 0, canvas.width, 56);
-
-  ctx.fillStyle = "#fff";
-  ctx.font = "bold 18px Roboto, Arial";
-  ctx.textBaseline = "middle";
-  ctx.fillText("🏙️ Idle Skyscraper Tycoon", 16, 28);
-}
 
 /* =========================
    RENDER
@@ -244,8 +250,6 @@ function drawSkyscraper() {
 
   ctx.fillStyle = "#455a64";
   ctx.fillRect(baseX - 20, canvas.height - 8, width + 40, 8);
-
-  drawCanvasHeader(); // ✅ header now lives inside canvas
 }
 
 /* =========================
