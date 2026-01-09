@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -79,6 +77,36 @@ header {
   box-shadow: 0 8px 20px rgba(0,0,0,0.3);
 }
 
+/* OFFLINE MODAL */
+#offlineModal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+#offlineModal .box {
+  background: white;
+  padding: 20px 24px;
+  border-radius: 12px;
+  width: 280px;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+
+#offlineModal h2 {
+  margin: 0 0 12px;
+  font-size: 18px;
+}
+
+#offlineModal p {
+  margin: 0 0 16px;
+  font-size: 14px;
+}
+
 button[disabled] {
   opacity: 0.6;
 }
@@ -104,6 +132,17 @@ button[disabled] {
     Build Floor ($0)
   </span>
 </button>
+
+<!-- OFFLINE MODAL -->
+<div id="offlineModal">
+  <div class="box">
+    <h2>Welcome Back!</h2>
+    <p id="offlineText"></p>
+    <button class="mdc-button mdc-button--raised" onclick="closeOfflineModal()">
+      <span class="mdc-button__label">Collect</span>
+    </button>
+  </div>
+</div>
 
 <script>
 /* =========================
@@ -136,18 +175,22 @@ const FLOOR_HEIGHT = 28;
 const FLOOR_MARGIN = 3;
 const GROUND_PADDING = 120;
 
+const MAX_OFFLINE_SECONDS = 6 * 60 * 60; // 6 hours cap
+
 /* =========================
    GAME STATE
 ========================= */
 let game = {
   money: 60,
-  floors: []
+  floors: [],
+  lastSeen: Date.now()
 };
 
 /* =========================
    SAVE / LOAD
 ========================= */
 function saveGame() {
+  game.lastSeen = Date.now();
   localStorage.setItem("skyscraperTycoon", JSON.stringify(game));
 }
 
@@ -155,6 +198,7 @@ function loadGame() {
   const d = JSON.parse(localStorage.getItem("skyscraperTycoon") || "{}");
   game.money = Math.max(d.money ?? 60, 60);
   game.floors = d.floors || [];
+  game.lastSeen = d.lastSeen || Date.now();
 }
 
 /* =========================
@@ -188,6 +232,32 @@ function buildFloor() {
     builtAt: Date.now() + BUILD_TIME
   });
 
+  saveGame();
+}
+
+/* =========================
+   OFFLINE PROGRESS (SAFE)
+========================= */
+function applyOfflineProgress() {
+  const now = Date.now();
+  let secondsAway = Math.floor((now - game.lastSeen) / 1000);
+  if (secondsAway <= 5) return;
+
+  secondsAway = Math.min(secondsAway, MAX_OFFLINE_SECONDS);
+
+  const earned = secondsAway * incomePerSecond();
+  if (earned <= 0) return;
+
+  game.money += earned;
+
+  document.getElementById("offlineText").textContent =
+    `You earned $${earned.toLocaleString()} while you were away (${Math.floor(secondsAway / 60)} min).`;
+
+  document.getElementById("offlineModal").style.display = "flex";
+}
+
+function closeOfflineModal() {
+  document.getElementById("offlineModal").style.display = "none";
   saveGame();
 }
 
@@ -279,6 +349,7 @@ function renderLoop() {
    INIT
 ========================= */
 loadGame();
+applyOfflineProgress();
 updateUI();
 setInterval(tick, 1000);
 requestAnimationFrame(renderLoop);
