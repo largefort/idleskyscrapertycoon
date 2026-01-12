@@ -148,22 +148,19 @@ button[disabled] {
   .forEach(e => document.addEventListener(e, ev => ev.preventDefault()));
 
 const TENANTS = {
-  office:          { income: 2,  color: "#90caf9" },
-  startup:         { income: 3,  color: "#81d4fa" },
-  shop:            { income: 4,  color: "#a5d6a7" },
-  gym:             { income: 4,  color: "#aed581" },
-  cafe:            { income: 5,  color: "#ffab91" },
-  cinema:          { income: 6,  color: "#bcaaa4" },
-  hotel:           { income: 6,  color: "#ce93d8" },
-  tech:            { income: 7,  color: "#64b5f6" },
-  bank:            { income: 9,  color: "#ffe082" },
-  luxury:          { income: 8,  color: "#ffcc80" },
-  research:        { income: 11, color: "#b39ddb" },
-  penthouse:       { income: 12, color: "#ffd54f" },
-  corporate_hq:    { income: 15, color: "#ff8a65" },
-  medical_clinic:  { income: 6,  color: "#80cbc4" },
-  law_firm:        { income: 10, color: "#a1887f" },
-  media_studio:    { income: 9,  color: "#7986cb" }
+  office:        { income: 2,  color: "#90caf9" },
+  startup:       { income: 3,  color: "#81d4fa" },
+  shop:          { income: 4,  color: "#a5d6a7" },
+  gym:           { income: 4,  color: "#aed581" },
+  cafe:          { income: 5,  color: "#ffab91" },
+  cinema:        { income: 6,  color: "#bcaaa4" },
+  hotel:         { income: 6,  color: "#ce93d8" },
+  tech:          { income: 7,  color: "#64b5f6" },
+  bank:          { income: 9,  color: "#ffe082" },
+  luxury:        { income: 8,  color: "#ffcc80" },
+  research:      { income: 11, color: "#b39ddb" },
+  penthouse:     { income: 12, color: "#ffd54f" },
+  corporate_hq:  { income: 15, color: "#ff8a65" }
 };
 
 const BASE_FLOOR_COST = 60;
@@ -183,7 +180,158 @@ let game = {
   lastSeen: Date.now()
 };
 
-/* everything else remains unchanged */
+function saveGame() {
+  game.lastSeen = Date.now();
+  localStorage.setItem("skyscraperTycoon", JSON.stringify(game));
+}
+
+function loadGame() {
+  const d = JSON.parse(localStorage.getItem("skyscraperTycoon") || "{}");
+  game.money = Math.max(d.money ?? 60, 60);
+  game.floors = d.floors || [];
+  game.lastSeen = d.lastSeen || Date.now();
+}
+
+/* 🔧 FIXED COST SCALING (SAFE, NON-EXPLODING) */
+function floorCost() {
+  const n = game.floors.length;
+
+  const linear = n * LINEAR_COST;
+
+  let exp = 0;
+  if (n > EXP_START) {
+    const t = n - EXP_START;
+    exp = BASE_FLOOR_COST * (Math.pow(EXP_RATE, t * 0.5) - 1);
+    exp = Math.min(exp, BASE_FLOOR_COST * 50);
+  }
+
+  return Math.floor(BASE_FLOOR_COST + linear + exp);
+}
+
+function incomePerSecond() {
+  return game.floors
+    .filter(f => Date.now() >= f.builtAt)
+    .reduce((s, f) => s + TENANTS[f.tenant].income, 0);
+}
+
+function addOnlineIncome() {
+  game.money += incomePerSecond();
+}
+
+function buildFloor() {
+  const cost = floorCost();
+  if (game.money < cost) return;
+
+  const keys = Object.keys(TENANTS);
+  game.money -= cost;
+  game.floors.push({
+    tenant: keys[Math.random() * keys.length | 0],
+    builtAt: Date.now() + BUILD_TIME
+  });
+
+  saveGame();
+}
+
+function applyOfflineProgress() {
+  const now = Date.now();
+  let sec = Math.floor((now - game.lastSeen) / 1000);
+  if (sec <= 5) return;
+
+  sec = Math.min(sec, MAX_OFFLINE_SECONDS);
+  const earned = sec * incomePerSecond();
+  if (earned <= 0) return;
+
+  game.money += earned;
+  offlineText.textContent =
+    `You earned $${earned.toLocaleString()} while away (${Math.floor(sec / 60)} min).`;
+
+  offlineModal.style.display = "flex";
+}
+
+function closeOfflineModal() {
+  offlineModal.style.display = "none";
+  saveGame();
+}
+
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+let cameraY = 0, targetCameraY = 0;
+
+function resizeCanvas() {
+  canvas.width = innerWidth;
+  canvas.height = innerHeight - 56;
+}
+addEventListener("resize", resizeCanvas);
+resizeCanvas();
+
+function drawSkyscraper() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  const sky = ctx.createLinearGradient(0,0,0,canvas.height);
+  sky.addColorStop(0,"#90a4ae");
+  sky.addColorStop(1,"#eceff1");
+  ctx.fillStyle = sky;
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+
+  const width = 160;
+  const baseX = (canvas.width - width) / 2;
+  const visibleHeight = canvas.height - GROUND_PADDING;
+  const towerHeight = game.floors.length * FLOOR_HEIGHT;
+
+  targetCameraY = Math.max(0, towerHeight - visibleHeight);
+  cameraY += (targetCameraY - cameraY) * 0.08;
+
+  let y = canvas.height - FLOOR_MARGIN + cameraY;
+
+  game.floors.forEach(f => {
+    y -= FLOOR_HEIGHT;
+    const built = Date.now() >= f.builtAt;
+    const p = built ? 1 : Math.max(0, 1 - (f.builtAt - Date.now()) / BUILD_TIME);
+    const off = FLOOR_HEIGHT * (1 - p);
+
+    ctx.fillStyle = built ? TENANTS[f.tenant].color : "#b0bec5";
+    ctx.fillRect(baseX, y + off, width, FLOOR_HEIGHT - FLOOR_MARGIN);
+
+    ctx.fillStyle = "rgba(0,0,0,0.08)";
+    ctx.fillRect(baseX + width - 10, y + off, 10, FLOOR_HEIGHT - FLOOR_MARGIN);
+
+    if (built) {
+      ctx.fillStyle = "rgba(255,255,255,0.55)";
+      for (let i = 1; i < 5; i++) {
+        ctx.fillRect(baseX + i * 30 - 5, y + 6, 8, 10);
+      }
+    }
+  });
+
+  ctx.fillStyle = "#455a64";
+  ctx.fillRect(baseX - 20, canvas.height - 8, width + 40, 8);
+}
+
+function updateUI() {
+  money.textContent = "$" + Math.floor(game.money);
+  floors.textContent = game.floors.length;
+  income.textContent = "$" + incomePerSecond();
+  const cost = floorCost();
+  buildLabel.textContent = `Build Floor ($${cost})`;
+  buildBtn.disabled = game.money < cost;
+}
+
+function tick() {
+  addOnlineIncome();
+  saveGame();
+  updateUI();
+}
+
+function renderLoop() {
+  drawSkyscraper();
+  requestAnimationFrame(renderLoop);
+}
+
+loadGame();
+applyOfflineProgress();
+updateUI();
+setInterval(tick, 1000);
+requestAnimationFrame(renderLoop);
 </script>
 
 </body>
