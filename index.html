@@ -92,19 +92,19 @@ header{
 
 <script>
 const TENANTS={
-  office:{income:2,color:"#90caf9"},
-  startup:{income:3,color:"#81d4fa"},
-  shop:{income:4,color:"#a5d6a7"},
-  gym:{income:4,color:"#aed581"},
-  cafe:{income:5,color:"#ffab91"},
-  cinema:{income:6,color:"#bcaaa4"},
-  hotel:{income:6,color:"#ce93d8"},
-  tech:{income:7,color:"#64b5f6"},
-  bank:{income:9,color:"#ffe082"},
-  luxury:{income:8,color:"#ffcc80"},
-  research:{income:11,color:"#b39ddb"},
-  penthouse:{income:12,color:"#ffd54f"},
-  corporate_hq:{income:15,color:"#ff8a65"}
+  office:{income:2,color:"#90caf9",light:"#ffffff"},
+  startup:{income:3,color:"#81d4fa",light:"#e3f2fd"},
+  shop:{income:4,color:"#a5d6a7",light:"#fffde7"},
+  gym:{income:4,color:"#aed581",light:"#f1f8e9"},
+  cafe:{income:5,color:"#ffab91",light:"#fff3e0"},
+  cinema:{income:6,color:"#bcaaa4",light:"#ede7f6"},
+  hotel:{income:6,color:"#ce93d8",light:"#fce4ec"},
+  tech:{income:7,color:"#64b5f6",light:"#e1f5fe"},
+  bank:{income:9,color:"#ffe082",light:"#fff9c4"},
+  luxury:{income:8,color:"#ffcc80",light:"#fff8e1"},
+  research:{income:11,color:"#b39ddb",light:"#ede7f6"},
+  penthouse:{income:12,color:"#ffd54f",light:"#fffde7"},
+  corporate_hq:{income:15,color:"#ff8a65",light:"#fbe9e7"}
 };
 
 const BASE_FLOOR_COST=60,LINEAR_COST=12,EXP_START=30,EXP_RATE=1.06;
@@ -118,7 +118,6 @@ let game={
   constructingUntil:0
 };
 
-/* SAVE / LOAD */
 function saveGame(){
   game.lastSeen=Date.now();
   localStorage.setItem("skyscraperTycoon",JSON.stringify(game));
@@ -134,7 +133,6 @@ function loadGame(){
   });
 }
 
-/* ECONOMY */
 function floorCost(){
   const n=game.floors.length;
   const exp=n>EXP_START
@@ -151,7 +149,6 @@ function recalcIncome(){
   game.cachedIncome=sum;
 }
 
-/* BUILD */
 function buildFloor(){
   const now=Date.now();
   if(now<game.constructingUntil) return;
@@ -171,7 +168,6 @@ function buildFloor(){
   saveGame();
 }
 
-/* CANVAS */
 const canvas=document.getElementById("gameCanvas");
 const ctx=canvas.getContext("2d");
 let cameraY=0,targetCameraY=0;
@@ -216,13 +212,21 @@ function draw(){
 
     ctx.fillStyle=built?TENANTS[f.tenant].color:"#b0bec5";
     ctx.fillRect(baseX,y+off,width,FLOOR_HEIGHT-FLOOR_MARGIN);
+
+    if(built){
+      ctx.fillStyle=TENANTS[f.tenant].light;
+      for(let i=1;i<5;i++){
+        if(Math.random()>0.25){
+          ctx.fillRect(baseX+i*30-5,y+off+6,8,10);
+        }
+      }
+    }
   }
 
   ctx.fillStyle="#455a64";
   ctx.fillRect(baseX-20,h-8,width+40,8);
 }
 
-/* UI */
 function updateUI(){
   money.textContent="$"+Math.floor(game.money);
   floors.textContent=game.floors.length;
@@ -238,7 +242,6 @@ function updateUI(){
   }
 }
 
-/* LOOPS */
 function tick(){
   game.money+=game.cachedIncome;
   saveGame();
@@ -249,7 +252,6 @@ function loop(){
   requestAnimationFrame(loop);
 }
 
-/* INIT */
 loadGame();
 recalcIncome();
 updateUI();
