@@ -12,7 +12,6 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Skyscraper Tycoon">
 
-<!-- ✅ Framework7 (iOS UI – kept for future use) -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/framework7@7.0.5/framework7-bundle.min.css">
 <script src="https://cdn.jsdelivr.net/npm/framework7@7.0.5/framework7-bundle.min.js"></script>
 
@@ -32,7 +31,6 @@ body {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
-/* iOS GLASS HUD */
 #hud {
   position: fixed;
   top: calc(16px + env(safe-area-inset-top));
@@ -46,12 +44,8 @@ body {
   z-index: 10;
 }
 
-.stat {
-  font-size: 14px;
-  margin: 4px 0;
-}
+.stat { font-size: 14px; margin: 4px 0; }
 
-/* CANVAS */
 #gameCanvas {
   position: absolute;
   top: env(safe-area-inset-top);
@@ -60,7 +54,6 @@ body {
   height: calc(100vh - env(safe-area-inset-top));
 }
 
-/* BUILD BUTTON */
 #buildBtn {
   position: fixed;
   bottom: calc(28px + env(safe-area-inset-bottom));
@@ -82,7 +75,6 @@ body {
 
 <canvas id="gameCanvas"></canvas>
 
-<!-- BUILD BUTTON -->
 <a href="#"
    id="buildBtn"
    class="button button-fill button-large color-purple"
@@ -91,12 +83,7 @@ body {
 </a>
 
 <script>
-const app = new Framework7({
-  theme: 'auto',
-  iosTranslucentBars: true,
-});
-
-/* ================= GAME LOGIC (UNCHANGED) ================= */
+const app = new Framework7({ theme:'auto', iosTranslucentBars:true });
 
 const TENANTS={
   office:{income:2,color:"#90caf9"},
@@ -152,27 +139,18 @@ function recalcCachedIncome(){
 function buildFloor(){
   const cost=floorCost();
   if(game.money<cost) return;
-
   game.money-=cost;
   const keys=Object.keys(TENANTS);
-  game.floors.push({
-    tenant:keys[Math.random()*keys.length|0],
-    builtAt:Date.now()+BUILD_TIME
-  });
-
+  game.floors.push({ tenant:keys[Math.random()*keys.length|0], builtAt:Date.now()+BUILD_TIME });
   setTimeout(recalcCachedIncome,BUILD_TIME+50);
   saveGame();
 }
 
 function applyOfflineDelta(){
-  const delta=Math.min(
-    Math.floor((Date.now()-game.lastSeen)/1000),
-    MAX_OFFLINE_SECONDS
-  );
+  const delta=Math.min(Math.floor((Date.now()-game.lastSeen)/1000),MAX_OFFLINE_SECONDS);
   if(delta>0) game.money+=delta*game.cachedIncome;
 }
 
-/* CANVAS */
 const canvas=document.getElementById("gameCanvas");
 const ctx=canvas.getContext("2d");
 let cameraY=0,targetCameraY=0;
@@ -187,8 +165,9 @@ addEventListener("resize",resizeCanvas);
 resizeCanvas();
 
 function drawSkyscraper(){
+  ctx.clearRect(0,0,canvas.width,canvas.height); // ✅ FIX
+
   const w=canvas.clientWidth,h=canvas.clientHeight;
-  ctx.clearRect(0,0,w,h);
 
   const sky=ctx.createLinearGradient(0,0,0,h);
   sky.addColorStop(0,"#78909c");
@@ -245,7 +224,6 @@ function loop(){
   requestAnimationFrame(loop);
 }
 
-/* INIT */
 loadGame();
 recalcCachedIncome();
 applyOfflineDelta();
