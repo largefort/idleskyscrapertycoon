@@ -165,7 +165,7 @@ addEventListener("resize",resizeCanvas);
 resizeCanvas();
 
 function drawSkyscraper(){
-  ctx.clearRect(0,0,canvas.width,canvas.height); // ✅ FIX
+  ctx.clearRect(0,0,canvas.width,canvas.height);
 
   const w=canvas.clientWidth,h=canvas.clientHeight;
 
@@ -182,7 +182,7 @@ function drawSkyscraper(){
   targetCameraY=Math.max(0,towerHeight-visibleHeight);
   cameraY+=(targetCameraY-cameraY)*0.08;
 
-  let y=h-FLOOR_MARGIN+cameraY;
+  let y = h - FLOOR_MARGIN - cameraY; // ✅ CAMERA FIX
 
   for(const f of game.floors){
     y-=FLOOR_HEIGHT;
