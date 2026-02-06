@@ -84,26 +84,6 @@ body {
 </a>
 
 <script>
-/* ================= iOS SCROLL LOCK ================= */
-function disableIOSScroll(){
-  const prevent = e => e.preventDefault();
-
-  document.addEventListener('touchmove', prevent, { passive:false });
-  document.addEventListener('wheel', prevent, { passive:false });
-
-  ['gesturestart','gesturechange','gestureend']
-    .forEach(e => document.addEventListener(e, prevent));
-
-  let lastTouchEnd = 0;
-  document.addEventListener('touchend', e => {
-    const now = Date.now();
-    if (now - lastTouchEnd <= 300) e.preventDefault();
-    lastTouchEnd = now;
-  }, { passive:false });
-}
-disableIOSScroll();
-/* ================================================ */
-
 const app = new Framework7({ theme:'auto', iosTranslucentBars:true });
 
 const TENANTS={
@@ -200,19 +180,19 @@ function drawSkyscraper(){
   const visibleHeight=h-GROUND_PADDING;
   const towerHeight=game.floors.length*FLOOR_HEIGHT;
 
-  targetCameraY=Math.max(0,towerHeight-visibleHeight);
-  cameraY+=(targetCameraY-cameraY)*0.08;
+  targetCameraY = Math.max(0, towerHeight - visibleHeight);
+  cameraY += (targetCameraY - cameraY) * 0.08;
 
-  let y=h-FLOOR_MARGIN-cameraY;
+  let y = h - FLOOR_MARGIN + cameraY;
 
   for(const f of game.floors){
-    y-=FLOOR_HEIGHT;
-    const built=Date.now()>=f.builtAt;
-    const p=built?1:Math.max(0,1-(f.builtAt-Date.now())/BUILD_TIME);
-    const off=FLOOR_HEIGHT*(1-p);
+    y -= FLOOR_HEIGHT;
+    const built = Date.now() >= f.builtAt;
+    const p = built ? 1 : Math.max(0, 1 - (f.builtAt - Date.now()) / BUILD_TIME);
+    const off = FLOOR_HEIGHT * (1 - p);
 
-    ctx.fillStyle=built?TENANTS[f.tenant].color:"#b0bec5";
-    ctx.fillRect(baseX,y+off,width,FLOOR_HEIGHT-FLOOR_MARGIN);
+    ctx.fillStyle = built ? TENANTS[f.tenant].color : "#b0bec5";
+    ctx.fillRect(baseX, y + off, width, FLOOR_HEIGHT - FLOOR_MARGIN);
 
     if(built){
       ctx.fillStyle="rgba(255,255,255,0.55)";
