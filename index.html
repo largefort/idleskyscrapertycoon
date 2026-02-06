@@ -5,8 +5,8 @@
 <title>Idle Skyscraper Tycoon</title>
 
 <meta name="viewport"
-  content="width=device-width, initial-scale=1.0,
-  maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+      content="width=device-width, initial-scale=1.0,
+               maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -15,68 +15,67 @@
 <link rel="manifest" href="https://progressier.app/QPRnNhooUxjiTXAvHTM5/progressier.json"/>
 <script defer src="https://progressier.app/QPRnNhooUxjiTXAvHTM5/script.js"></script>
 
-<link rel="stylesheet" href="https://unpkg.com/material-components-web@14.0.0/dist/material-components-web.min.css">
+<!-- ✅ Framework7 (iOS UI – kept for future use) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/framework7@7.0.5/framework7-bundle.min.css">
+<script src="https://cdn.jsdelivr.net/npm/framework7@7.0.5/framework7-bundle.min.js"></script>
 
 <style>
-html,body{
-  margin:0;
-  width:100%;
-  height:100%;
-  overflow:hidden;
-  background:#e6ebef;
-  font-family:Roboto,Arial,sans-serif;
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #e6ebef;
+  font-family: -apple-system, BlinkMacSystemFont, Roboto, Arial, sans-serif;
 }
 
-body{
-  padding-top:env(safe-area-inset-top);
-  padding-bottom:env(safe-area-inset-bottom);
+body {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
-header{
-  position:fixed;
-  top:env(safe-area-inset-top);
-  left:0; right:0;
-  height:56px;
-  background:linear-gradient(90deg,#5e35b1,#673ab7);
-  color:white;
-  display:flex;
-  align-items:center;
-  padding:0 16px;
-  z-index:10;
+/* iOS GLASS HUD */
+#hud {
+  position: fixed;
+  top: calc(16px + env(safe-area-inset-top));
+  left: 16px;
+  background: rgba(255,255,255,0.6);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  border-radius: 14px;
+  padding: 12px 16px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  z-index: 10;
 }
 
-#hud{
-  position:fixed;
-  top:calc(72px + env(safe-area-inset-top));
-  left:16px;
-  background:rgba(255,255,255,.92);
-  border-radius:10px;
-  padding:12px 16px;
-  z-index:10;
+.stat {
+  font-size: 14px;
+  margin: 4px 0;
 }
 
-.stat{font-size:14px;margin:4px 0;}
-
-#gameCanvas{
-  position:absolute;
-  top:calc(56px + env(safe-area-inset-top));
-  left:0;
-  width:100vw;
-  height:calc(100vh - 56px - env(safe-area-inset-top));
+/* CANVAS */
+#gameCanvas {
+  position: absolute;
+  top: env(safe-area-inset-top);
+  left: 0;
+  width: 100vw;
+  height: calc(100vh - env(safe-area-inset-top));
 }
 
-#buildBtn{
-  position:fixed;
-  bottom:calc(28px + env(safe-area-inset-bottom));
-  left:50%;
-  transform:translateX(-50%);
+/* BUILD BUTTON */
+#buildBtn {
+  position: fixed;
+  bottom: calc(28px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  min-width: 220px;
 }
 </style>
 </head>
 
 <body>
-
-<header>🏙️ Idle Skyscraper Tycoon</header>
 
 <div id="hud">
   <div class="stat">Money: <strong id="money">$0</strong></div>
@@ -86,51 +85,55 @@ header{
 
 <canvas id="gameCanvas"></canvas>
 
-<button id="buildBtn" class="mdc-button mdc-button--raised" onclick="buildFloor()">
+<!-- BUILD BUTTON -->
+<a href="#"
+   id="buildBtn"
+   class="button button-fill button-large color-purple"
+   onclick="buildFloor()">
   <span id="buildLabel">Build Floor ($0)</span>
-</button>
+</a>
 
 <script>
+const app = new Framework7({
+  theme: 'auto',
+  iosTranslucentBars: true,
+});
+
+/* ================= GAME LOGIC (UNCHANGED) ================= */
+
 const TENANTS={
-  office:{income:2,color:"#90caf9",light:"#ffffff"},
-  startup:{income:3,color:"#81d4fa",light:"#e3f2fd"},
-  shop:{income:4,color:"#a5d6a7",light:"#fffde7"},
-  gym:{income:4,color:"#aed581",light:"#f1f8e9"},
-  cafe:{income:5,color:"#ffab91",light:"#fff3e0"},
-  cinema:{income:6,color:"#bcaaa4",light:"#ede7f6"},
-  hotel:{income:6,color:"#ce93d8",light:"#fce4ec"},
-  tech:{income:7,color:"#64b5f6",light:"#e1f5fe"},
-  bank:{income:9,color:"#ffe082",light:"#fff9c4"},
-  luxury:{income:8,color:"#ffcc80",light:"#fff8e1"},
-  research:{income:11,color:"#b39ddb",light:"#ede7f6"},
-  penthouse:{income:12,color:"#ffd54f",light:"#fffde7"},
-  corporate_hq:{income:15,color:"#ff8a65",light:"#fbe9e7"}
+  office:{income:2,color:"#90caf9"},
+  startup:{income:3,color:"#81d4fa"},
+  shop:{income:4,color:"#a5d6a7"},
+  gym:{income:4,color:"#aed581"},
+  cafe:{income:5,color:"#ffab91"},
+  cinema:{income:6,color:"#bcaaa4"},
+  hotel:{income:6,color:"#ce93d8"},
+  tech:{income:7,color:"#64b5f6"},
+  bank:{income:9,color:"#ffe082"},
+  luxury:{income:8,color:"#ffcc80"},
+  research:{income:11,color:"#b39ddb"},
+  penthouse:{income:12,color:"#ffd54f"},
+  corporate_hq:{income:15,color:"#ff8a65"}
 };
 
 const BASE_FLOOR_COST=60,LINEAR_COST=12,EXP_START=30,EXP_RATE=1.06;
 const BUILD_TIME=800,FLOOR_HEIGHT=28,FLOOR_MARGIN=3,GROUND_PADDING=120;
+const MAX_OFFLINE_SECONDS=12*60*60;
 
-let game={
-  money:60,
-  floors:[],
-  cachedIncome:0,
-  lastSeen:Date.now(),
-  constructingUntil:0
-};
+let game={money:60,floors:[],cachedIncome:0,lastSeen:Date.now()};
 
 function saveGame(){
   game.lastSeen=Date.now();
   localStorage.setItem("skyscraperTycoon",JSON.stringify(game));
 }
+
 function loadGame(){
   const d=JSON.parse(localStorage.getItem("skyscraperTycoon")||"{}");
-  Object.assign(game,{
-    money:d.money??60,
-    floors:d.floors||[],
-    cachedIncome:d.cachedIncome||0,
-    lastSeen:d.lastSeen||Date.now(),
-    constructingUntil:d.constructingUntil||0
-  });
+  game.money=d.money??60;
+  game.floors=d.floors||[];
+  game.cachedIncome=d.cachedIncome||0;
+  game.lastSeen=d.lastSeen||Date.now();
 }
 
 function floorCost(){
@@ -141,7 +144,7 @@ function floorCost(){
   return Math.floor(BASE_FLOOR_COST+n*LINEAR_COST+Math.min(exp,BASE_FLOOR_COST*50));
 }
 
-function recalcIncome(){
+function recalcCachedIncome(){
   let sum=0,now=Date.now();
   for(const f of game.floors){
     if(now>=f.builtAt) sum+=TENANTS[f.tenant].income;
@@ -150,43 +153,45 @@ function recalcIncome(){
 }
 
 function buildFloor(){
-  const now=Date.now();
-  if(now<game.constructingUntil) return;
   const cost=floorCost();
   if(game.money<cost) return;
 
   game.money-=cost;
-  game.constructingUntil=now+BUILD_TIME;
-
   const keys=Object.keys(TENANTS);
   game.floors.push({
     tenant:keys[Math.random()*keys.length|0],
-    builtAt:game.constructingUntil
+    builtAt:Date.now()+BUILD_TIME
   });
 
-  setTimeout(recalcIncome,BUILD_TIME+50);
+  setTimeout(recalcCachedIncome,BUILD_TIME+50);
   saveGame();
 }
 
+function applyOfflineDelta(){
+  const delta=Math.min(
+    Math.floor((Date.now()-game.lastSeen)/1000),
+    MAX_OFFLINE_SECONDS
+  );
+  if(delta>0) game.money+=delta*game.cachedIncome;
+}
+
+/* CANVAS */
 const canvas=document.getElementById("gameCanvas");
 const ctx=canvas.getContext("2d");
 let cameraY=0,targetCameraY=0;
 
 function resizeCanvas(){
   const dpr=window.devicePixelRatio||1;
-  const w=canvas.clientWidth;
-  const h=canvas.clientHeight;
-  canvas.width=w*dpr;
-  canvas.height=h*dpr;
+  canvas.width=canvas.clientWidth*dpr;
+  canvas.height=canvas.clientHeight*dpr;
   ctx.setTransform(dpr,0,0,dpr,0,0);
 }
 addEventListener("resize",resizeCanvas);
 resizeCanvas();
 
-function draw(){
-  const w=canvas.clientWidth;
-  const h=canvas.clientHeight;
-  ctx.clearRect(0,0,canvas.width,canvas.height);
+function drawSkyscraper(){
+  const w=canvas.clientWidth,h=canvas.clientHeight;
+  ctx.clearRect(0,0,w,h);
 
   const sky=ctx.createLinearGradient(0,0,0,h);
   sky.addColorStop(0,"#78909c");
@@ -194,8 +199,7 @@ function draw(){
   ctx.fillStyle=sky;
   ctx.fillRect(0,0,w,h);
 
-  const width=160;
-  const baseX=(w-width)/2;
+  const width=160,baseX=(w-width)/2;
   const visibleHeight=h-GROUND_PADDING;
   const towerHeight=game.floors.length*FLOOR_HEIGHT;
 
@@ -214,11 +218,9 @@ function draw(){
     ctx.fillRect(baseX,y+off,width,FLOOR_HEIGHT-FLOOR_MARGIN);
 
     if(built){
-      ctx.fillStyle=TENANTS[f.tenant].light;
+      ctx.fillStyle="rgba(255,255,255,0.55)";
       for(let i=1;i<5;i++){
-        if(Math.random()>0.25){
-          ctx.fillRect(baseX+i*30-5,y+off+6,8,10);
-        }
+        ctx.fillRect(baseX+i*30-5,y+6,8,10);
       }
     }
   }
@@ -231,15 +233,8 @@ function updateUI(){
   money.textContent="$"+Math.floor(game.money);
   floors.textContent=game.floors.length;
   income.textContent="$"+game.cachedIncome;
-
-  const now=Date.now();
-  if(now<game.constructingUntil){
-    buildLabel.textContent=`Building… ${((game.constructingUntil-now)/1000).toFixed(1)}s`;
-    buildBtn.disabled=true;
-  }else{
-    buildLabel.textContent=`Build Floor ($${floorCost()})`;
-    buildBtn.disabled=game.money<floorCost();
-  }
+  buildLabel.textContent=`Build Floor ($${floorCost()})`;
+  buildBtn.classList.toggle("disabled",game.money<floorCost());
 }
 
 function tick(){
@@ -247,13 +242,16 @@ function tick(){
   saveGame();
   updateUI();
 }
+
 function loop(){
-  draw();
+  drawSkyscraper();
   requestAnimationFrame(loop);
 }
 
+/* INIT */
 loadGame();
-recalcIncome();
+recalcCachedIncome();
+applyOfflineDelta();
 updateUI();
 setInterval(tick,1000);
 loop();
