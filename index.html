@@ -29,6 +29,7 @@ html, body {
 body {
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
+  overscroll-behavior: none;
 }
 
 #hud {
@@ -83,6 +84,26 @@ body {
 </a>
 
 <script>
+/* ================= iOS SCROLL LOCK ================= */
+function disableIOSScroll(){
+  const prevent = e => e.preventDefault();
+
+  document.addEventListener('touchmove', prevent, { passive:false });
+  document.addEventListener('wheel', prevent, { passive:false });
+
+  ['gesturestart','gesturechange','gestureend']
+    .forEach(e => document.addEventListener(e, prevent));
+
+  let lastTouchEnd = 0;
+  document.addEventListener('touchend', e => {
+    const now = Date.now();
+    if (now - lastTouchEnd <= 300) e.preventDefault();
+    lastTouchEnd = now;
+  }, { passive:false });
+}
+disableIOSScroll();
+/* ================================================ */
+
 const app = new Framework7({ theme:'auto', iosTranslucentBars:true });
 
 const TENANTS={
@@ -182,7 +203,7 @@ function drawSkyscraper(){
   targetCameraY=Math.max(0,towerHeight-visibleHeight);
   cameraY+=(targetCameraY-cameraY)*0.08;
 
-  let y = h - FLOOR_MARGIN - cameraY; // ✅ CAMERA FIX
+  let y=h-FLOOR_MARGIN-cameraY;
 
   for(const f of game.floors){
     y-=FLOOR_HEIGHT;
